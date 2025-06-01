@@ -1,0 +1,499 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_DOKTER 50
+#define MAX_PASIEN 100
+#define MAX_RIWAYAT 200
+#define MAX_SPESIALISASI 15
+
+// =====================
+// 1. Struct Dokter
+// =====================
+typedef struct {
+    int id;
+    char nama[50];
+    char spesialisasi[50];
+    char jadwal[100]; // Format: "Hari1 & Hari2 - JJ.MM-JJ.MM, HariLain - JJ.MM-JJ.MM"
+                      // Jadwal (jam avail) dokter disimpan di sini.
+} Dokter;
+
+// =====================
+// 2. Struct Pasien
+// =====================
+typedef struct {
+    int id;
+    char nama[50];
+    int umur;
+    char keluhan[100];
+    int idDokter; // ID dokter yang dipilihkan untuk pasien
+    char preferensiHari[20];  // menyimpan preferensi hari dari pasien
+    char preferensiJam[20];   // menyimpan preferensi jam dari pasien
+} Pasien;
+
+// =====================
+// 3. Struct Riwayat
+// =====================
+// Struktur data untuk riwayat konsultasi.
+typedef struct {
+    int idPasien;
+    int idDokter;
+    char keluhan[100];
+    char tanggalKonsultasi[20];
+} Riwayat;
+
+// =====================
+// 4. Inisialisasi Dokter
+// =====================
+void inisialisasiDokter(Dokter daftar[], int *jumlah) {
+    // Data dokter diinisialisasi dengan jadwal ketersediaan mereka.
+    // Nambahin lebih banyak dokter dan kategori spesialisasi.
+    *jumlah = 18; 
+    daftar[0] = (Dokter){1, "Dr. Andi", "Kardiologi", "Senin & Rabu - 08.00-10.00"};
+    daftar[1] = (Dokter){2, "Dr. Budi", "Neurologi", "Selasa & Kamis - 10.00-12.00"};
+    daftar[2] = (Dokter){3, "Dr. Clara", "Dermatologi", "Senin & Jumat - 13.00-15.00"};
+    daftar[3] = (Dokter){4, "Dr. Dina", "Kardiologi", "Rabu & Jumat - 09.00-11.00"};
+    daftar[4] = (Dokter){5, "Dr. Erwin", "Neurologi", "Selasa & Kamis - 14.00-16.00"};
+    daftar[5] = (Dokter){6, "Dr. Fajar", "Pediatri", "Senin & Kamis - 09.00-11.00"};
+    daftar[6] = (Dokter){7, "Dr. Gina", "Ortopedi", "Selasa & Jumat - 10.00-12.00"};
+    daftar[7] = (Dokter){8, "Dr. Hadi", "Psikiatri", "Rabu & Sabtu - 13.00-15.00"};
+    daftar[8] = (Dokter){9, "Dr. Dian", "Mata", "Selasa & Jumat - 13.00-15.00"};
+    daftar[9] = (Dokter){10, "Drg. Agnes", "Gigi", "Senin & Rabu - 13.00-15.00"};
+    daftar[10] = (Dokter){11, "Dr. Raditya", "Mata", "Selasa & Kamis - 09.00-11.00"};
+    daftar[11] = (Dokter){12, "Dr. Galuh", "Neurologi", "Rabu & Jumat - 13.00-15.00"};
+    daftar[12] = (Dokter){13, "Dr. Michelle", "Dermatologi", "Senin & Rabu - 14.00-16.00"};
+    daftar[13] = (Dokter){14, "Dr. Kamila", "Pediatri", "Rabu & Sabtu - 09.00-11.00"};
+    daftar[14] = (Dokter){15, "Dr. Surya", "THT", "Senin & Kamis - 10.00-12.00"}; 
+    daftar[15] = (Dokter){16, "Dr. Indah", "Penyakit Dalam", "Selasa & Jumat - 08.00-10.00"}; 
+    daftar[16] = (Dokter){17, "Dr. Rian", "Umum", "Setiap Hari Kerja - 09.00-12.00"};
+    daftar[17] = (Dokter){18, "Dr. Karina", "Psikiatri", "Senin & Kamis - 15.00-17.00"};
+}
+
+// Variabel global untuk daftar spesialisasi unik
+char daftarSpesialisasi[MAX_SPESIALISASI][50];
+int jumlahSpesialisasiUnik = 0;
+
+// Fungsi untuk menginisialisasi daftar spesialisasi unik dari data dokter
+void initDaftarSpesialisasi(Dokter dokterList[], int jumlahDokter) {
+    // Mengumpulkan semua kategori spesialisasi yang ada.
+    jumlahSpesialisasiUnik = 0;
+    for (int i = 0; i < jumlahDokter; i++) {
+        int found = 0;
+        for (int j = 0; j < jumlahSpesialisasiUnik; j++) {
+            if (strcmp(dokterList[i].spesialisasi, daftarSpesialisasi[j]) == 0) {
+                found = 1;
+                break;
+            }
+        }
+        if (!found && jumlahSpesialisasiUnik < MAX_SPESIALISASI) {
+            strcpy(daftarSpesialisasi[jumlahSpesialisasiUnik], dokterList[i].spesialisasi);
+            jumlahSpesialisasiUnik++;
+        }
+    }
+}
+
+// =====================
+// 5. Tampilkan Spesialisasi
+// =====================
+void tampilkanSpesialisasi() {
+    // Sesuai dengan request revisi, bagian ini fungsinya untuk menampilkan kategori spesialisasi yang lebih banyak.
+    printf("Pilihan Spesialisasi:\n");
+    for (int i = 0; i < jumlahSpesialisasiUnik; i++) {
+        printf("%d. %s\n", i + 1, daftarSpesialisasi[i]);
+    }
+}
+
+// =====================
+// 6. Cari Dokter Berdasarkan Spesialisasi
+// =====================
+void cariDokterBerdasarkanSpesialisasi(Dokter daftar[], int jumlah) {
+    int pilihan;
+    char spesialisasiDipilih[50];
+
+    if (jumlahSpesialisasiUnik == 0) {
+        printf("Daftar spesialisasi belum diinisialisasi atau tidak ada dokter.\n");
+        return;
+    }
+
+    tampilkanSpesialisasi(); 
+    printf("Pilih nomor spesialisasi: ");
+    if (scanf("%d", &pilihan) != 1) {
+        printf("Input tidak valid.\n");
+        while(getchar() != '\n');
+        return;
+    }
+
+
+    if (pilihan >= 1 && pilihan <= jumlahSpesialisasiUnik) {
+        strcpy(spesialisasiDipilih, daftarSpesialisasi[pilihan - 1]);
+    } else {
+        printf("Pilihan tidak valid.\n");
+        return;
+    }
+
+    printf("\nDokter dengan Spesialisasi %s:\n", spesialisasiDipilih);
+    int ditemukan = 0;
+    for (int i = 0; i < jumlah; i++) {
+        if (strcmp(daftar[i].spesialisasi, spesialisasiDipilih) == 0) {
+            // Menampilkan dokter beserta jadwalnya.
+            printf("ID: %d | Nama: %s | Jadwal: %s\n",
+                   daftar[i].id, daftar[i].nama, daftar[i].jadwal);
+            ditemukan = 1;
+        }
+    }
+
+    if (!ditemukan)
+        printf("Belum ada dokter dengan spesialisasi tersebut.\n");
+}
+
+// =====================
+// 7. Tambah Pasien
+// =====================
+void tambahPasien(Pasien daftar[], int *jumlahPasien) {
+    if (*jumlahPasien >= MAX_PASIEN) {
+        printf("Kapasitas pasien sudah penuh.\n");
+        return;
+    }
+    Pasien p;
+    p.id = *jumlahPasien + 1;
+
+    printf("\n=== Input Data Pasien ===\n");
+    printf("Nama Pasien: ");
+    scanf(" %[^\n]", p.nama);
+    printf("Umur: ");
+    scanf("%d", &p.umur);
+    printf("Keluhan: ");
+    scanf(" %[^\n]", p.keluhan);
+    p.idDokter = 0; // Awalnya tidak ada dokter, akan diisi saat reservasi
+    strcpy(p.preferensiHari, "");
+    strcpy(p.preferensiJam, "");
+
+    daftar[*jumlahPasien] = p;
+    (*jumlahPasien)++;
+
+    printf("Data pasien berhasil ditambahkan dengan ID %d!\n", p.id);
+}
+
+// =====================
+// 8. Reservasi Kunjungan
+// =====================
+void parseJam(const char* jamStr, float* mulai, float* selesai) {
+    int jamMulai, menitMulai, jamSelesai, menitSelesai;
+    sscanf(jamStr, "%d.%d-%d.%d", &jamMulai, &menitMulai, &jamSelesai, &menitSelesai);
+    *mulai = jamMulai + menitMulai / 60.0f;
+    *selesai = jamSelesai + menitSelesai / 60.0f;
+}
+
+// Fungsi untuk cek apakah dua interval waktu overlap
+int jamOverlap(float mulai1, float selesai1, float mulai2, float selesai2) {
+    return !(selesai1 <= mulai2 || selesai2 <= mulai1);
+}
+
+// Fungsi utama reservasi kunjungan
+void reservasiKunjungan(Pasien pasien[], int jumlahPasien, Dokter dokter[], int jumlahDokter) {
+    if (jumlahPasien == 0) {
+        printf("Belum ada data pasien. Silakan tambahkan data pasien terlebih dahulu.\n");
+        return;
+    }
+    if (jumlahDokter == 0) {
+        printf("Belum ada data dokter. Sistem tidak dapat melakukan reservasi.\n");
+        return;
+    }
+
+    int idPasien;
+    printf("Masukkan ID pasien untuk reservasi: ");
+    scanf("%d", &idPasien);
+
+    int indeksPasien = -1;
+    for (int i = 0; i < jumlahPasien; i++) {
+        if (pasien[i].id == idPasien) {
+            indeksPasien = i;
+            break;
+        }
+    }
+
+    if (indeksPasien == -1) {
+        printf("ID pasien tidak ditemukan.\n");
+        return;
+    }
+
+    printf("\n--- Reservasi untuk Pasien: %s ---\n", pasien[indeksPasien].nama);
+
+    if (jumlahSpesialisasiUnik == 0) { // Jika belum diinisialisasi
+        initDaftarSpesialisasi(dokter, jumlahDokter);
+    }
+    tampilkanSpesialisasi();
+
+    int pilihanSpesialisasi;
+    char spesialisasiDipilih[50];
+    printf("Pilih nomor spesialisasi yang diinginkan: ");
+    scanf("%d", &pilihanSpesialisasi);
+
+    if (pilihanSpesialisasi < 1 || pilihanSpesialisasi > jumlahSpesialisasiUnik) {
+        printf("Pilihan spesialisasi tidak valid.\n");
+        return;
+    }
+    strcpy(spesialisasiDipilih, daftarSpesialisasi[pilihanSpesialisasi - 1]);
+
+    printf("Masukkan hari preferensi konsultasi (Contoh: Senin, Selasa): ");
+    scanf(" %[^\n]", pasien[indeksPasien].preferensiHari);
+    printf("Masukkan jam preferensi konsultasi (Contoh: 09.00-11.00): ");
+    scanf(" %[^\n]", pasien[indeksPasien].preferensiJam);
+
+    printf("\nMencari dokter dengan spesialisasi '%s' pada hari '%s' sekitar jam '%s'...\n",
+           spesialisasiDipilih, pasien[indeksPasien].preferensiHari, pasien[indeksPasien].preferensiJam);
+
+    int idDokterDitemukan = -1;
+    int indeksDokterDitemukan = -1;
+
+    for (int i = 0; i < jumlahDokter; i++) {
+        if (strcmp(dokter[i].spesialisasi, spesialisasiDipilih) == 0) {
+            // Konversi jadwal dokter dan preferensi hari ke lowercase
+            char jadwalLower[100], preferensiHariLower[50];
+            int j;
+            for (j = 0; dokter[i].jadwal[j]; j++) jadwalLower[j] = tolower(dokter[i].jadwal[j]);
+            jadwalLower[j] = '\0';
+            for (j = 0; pasien[indeksPasien].preferensiHari[j]; j++) preferensiHariLower[j] = tolower(pasien[indeksPasien].preferensiHari[j]);
+            preferensiHariLower[j] = '\0';
+
+            if (strstr(jadwalLower, preferensiHariLower) != NULL) {
+                // Ambil jam dokter dari jadwal dokter
+                char* ptrJam = strchr(dokter[i].jadwal, '-');
+                if (ptrJam != NULL) {
+                    ptrJam++; // Lewati tanda '-'
+                    while (*ptrJam == ' ') ptrJam++; // Lewati spasi jika ada
+
+                    float mulaiDokter, selesaiDokter, mulaiPasien, selesaiPasien;
+                    parseJam(ptrJam, &mulaiDokter, &selesaiDokter);
+                    parseJam(pasien[indeksPasien].preferensiJam, &mulaiPasien, &selesaiPasien);
+
+                    if (jamOverlap(mulaiDokter, selesaiDokter, mulaiPasien, selesaiPasien)) {
+                        idDokterDitemukan = dokter[i].id;
+                        indeksDokterDitemukan = i;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (idDokterDitemukan != -1) {
+        pasien[indeksPasien].idDokter = idDokterDitemukan;
+        printf("Reservasi berhasil!\n");
+        printf("Pasien: %s\n", pasien[indeksPasien].nama);
+        printf("Akan berkonsultasi dengan: Dr. %s (%s)\n", dokter[indeksDokterDitemukan].nama, dokter[indeksDokterDitemukan].spesialisasi);
+        printf("Jadwal Dokter: %s\n", dokter[indeksDokterDitemukan].jadwal);
+        printf("Pastikan hadir sesuai jadwal dokter atau konfirmasi ulang dengan pihak klinik.\n");
+    } else {
+        printf("Maaf, tidak ada dokter %s yang dapat kami pilihkan secara otomatis untuk jadwal preferensi Anda (%s, %s).\n",
+               spesialisasiDipilih, pasien[indeksPasien].preferensiHari, pasien[indeksPasien].preferensiJam);
+
+        int adaDokterSpesialisIni = 0;
+        for (int i = 0; i < jumlahDokter; i++) {
+            if (strcmp(dokter[i].spesialisasi, spesialisasiDipilih) == 0) {
+                if (!adaDokterSpesialisIni) {
+                    printf("Namun, berikut adalah daftar dokter dengan spesialisasi %s dan jadwal umum mereka (jika ada):\n", spesialisasiDipilih);
+                }
+                printf("ID: %d | Nama: %s | Jadwal: %s\n", dokter[i].id, dokter[i].nama, dokter[i].jadwal);
+                adaDokterSpesialisIni = 1;
+            }
+        }
+
+        if (adaDokterSpesialisIni) {
+            printf("Silakan coba lakukan reservasi kembali dengan preferensi hari atau jam yang berbeda agar sistem dapat mencarikan dokter secara otomatis, atau pilih spesialisasi lain.\n");
+        } else {
+            printf("Tidak ada dokter dengan spesialisasi %s dalam sistem kami saat ini.\n", spesialisasiDipilih);
+        }
+    }
+}
+// =====================
+// 9. Konsultasi Online
+// =====================
+void konsultasiOnline(Pasien pasien[], int jumlahPasien, Dokter dokter[], int jumlahDokter, Riwayat riwayat[], int *jumlahRiwayat) {
+    // Proses konsultasi akan disimpan ke riwayat.
+    if (*jumlahRiwayat >= MAX_RIWAYAT) {
+        printf("Kapasitas riwayat sudah penuh.\n");
+        return;
+    }
+    int idPasien;
+    printf("Masukkan ID pasien untuk konsultasi: ");
+    scanf("%d", &idPasien);
+
+    int indeksPasien = -1;
+    for (int i = 0; i < jumlahPasien; i++) {
+        if (pasien[i].id == idPasien) {
+            indeksPasien = i;
+            break;
+        }
+    }
+
+    if (indeksPasien == -1) {
+        printf("ID pasien tidak ditemukan.\n");
+        return;
+    }
+
+    if (pasien[indeksPasien].idDokter == 0) {
+        printf("Pasien %s belum melakukan reservasi dokter. Silakan lakukan reservasi terlebih dahulu.\n", pasien[indeksPasien].nama);
+        return;
+    }
+
+    int indeksDokter = -1;
+    for (int j = 0; j < jumlahDokter; j++) {
+        if (dokter[j].id == pasien[indeksPasien].idDokter) {
+            indeksDokter = j;
+            break;
+        }
+    }
+
+    if (indeksDokter == -1) {
+        printf("Error: Dokter untuk pasien ini tidak ditemukan dalam sistem.\n");
+        return;
+    }
+
+    printf("\n--- Sesi Konsultasi Online ---\n");
+    printf("Pasien: %s (ID: %d)\n", pasien[indeksPasien].nama, pasien[indeksPasien].id);
+    printf("Keluhan: %s\n", pasien[indeksPasien].keluhan);
+    printf("Dokter: Dr. %s (Spesialis: %s)\n", dokter[indeksDokter].nama, dokter[indeksDokter].spesialisasi);
+    printf("Jadwal Dokter (untuk referensi): %s\n", dokter[indeksDokter].jadwal);
+
+    char tanggalKonsul[20];
+    printf("Masukkan tanggal konsultasi hari ini (DD-MM-YYYY): ");
+    scanf(" %[^\n]", tanggalKonsul);
+
+    printf("Simulasi konsultasi dimulai...\n");
+    printf("Konsultasi selesai.\n");
+
+    // Simpan ke riwayat
+    Riwayat r;
+    r.idPasien = pasien[indeksPasien].id;
+    r.idDokter = dokter[indeksDokter].id;
+    strcpy(r.keluhan, pasien[indeksPasien].keluhan);
+    strcpy(r.tanggalKonsultasi, tanggalKonsul); // Menyimpan tanggal konsultasi ke riwayat
+
+    riwayat[*jumlahRiwayat] = r;
+    (*jumlahRiwayat)++;
+
+    printf("Sesi konsultasi telah dicatat dalam riwayat.\n");
+}
+
+// =====================
+// 10. Tampilkan Riwayat
+// =====================
+void tampilkanRiwayatKonsultasi(Riwayat riwayat[], int jumlahRiwayat, Pasien pasien[], int jumlahPasien, Dokter dokter[], int jumlahDokter) {
+    // Menampilkan semua riwayat konsultasi yang tersimpan.
+    if (jumlahRiwayat == 0) {
+        printf("Belum ada riwayat konsultasi.\n");
+        return;
+    }
+
+    printf("\n=== Riwayat Konsultasi ===\n");
+    for (int i = 0; i < jumlahRiwayat; i++) {
+        char namaPasien[50] = "Pasien Dihapus/Tidak Diketahui";
+        char namaDokter[50] = "Dokter Dihapus/Tidak Diketahui";
+        char spesialisDokter[50] = "-";
+
+        for (int j = 0; j < jumlahPasien; j++) {
+            if (pasien[j].id == riwayat[i].idPasien) {
+                strcpy(namaPasien, pasien[j].nama);
+                break;
+            }
+        }
+
+        for (int k = 0; k < jumlahDokter; k++) {
+            if (dokter[k].id == riwayat[i].idDokter) {
+                strcpy(namaDokter, dokter[k].nama);
+                strcpy(spesialisDokter, dokter[k].spesialisasi);
+                break;
+            }
+        }
+        printf("Tanggal: %s | Pasien: %s | Dokter: Dr. %s (%s) | Keluhan: %s\n",
+               riwayat[i].tanggalKonsultasi, namaPasien, namaDokter, spesialisDokter, riwayat[i].keluhan);
+    }
+}
+
+// =====================
+// 11. Main
+// =====================
+int main() {
+    Dokter daftarDokter[MAX_DOKTER];
+    Pasien daftarPasien[MAX_PASIEN];
+    Riwayat daftarRiwayat[MAX_RIWAYAT];
+    int jumlahRiwayat = 0;
+    int jumlahDokter = 0, jumlahPasien = 0;
+    int pilihan;
+
+    inisialisasiDokter(daftarDokter, &jumlahDokter);
+    initDaftarSpesialisasi(daftarDokter, jumlahDokter); // Inisialisasi daftar spesialisasi unik
+
+    printf("\n");
+    printf("******************************************************************\n");
+    printf("* *\n");
+    printf("* CCCCCCCC   LL      IIIIII  NN   NN  IIIIII   CCCCCC       *\n");
+    printf("* CC          LL        II    NNN  NN    II    CC            *\n");
+    printf("* CC          LL        II    NN N NN    II    CC            *\n");
+    printf("* CC          LL        II    NN  NNN    II    CC            *\n");
+    printf("* CCCCCCCC   LLLLLL  IIIIII  NN   NN  IIIIII   CCCCCC       *\n");
+    printf("* *\n");
+    printf("* NN   NN   OOOOO   WW      WW   !!!                           *\n");
+    printf("* NNN  NN  OO   OO  WW      WW   !!!                           *\n");
+    printf("* NN N NN  OO   OO  WW   W  WW   !!!                           *\n");
+    printf("* NN  NNN  OO   OO  WW  W W WW                                 *\n");
+    printf("* NN   NN   OOOOO    WWWW WWW    !!!                           *\n");
+    printf("* *\n");
+    printf("******************************************************************\n");
+    printf("                Your Health, Our Priority!                        \n");
+
+    printf("\nWelcome to ClinicNow! How may we help you today?\n");
+    printf("Tempat termudah buat janji temu dengan dokter — cepat, tanpa antre, langsung dari genggamanmu.\n");
+    printf("#SehatSekarang bareng ClinicNow!\n\n");
+
+
+    do {
+        printf("\n=== SISTEM TELEMEDICINE CLINICNOW ===\n");
+        printf("1. Cari Dokter Berdasarkan Spesialisasi\n");
+        printf("2. Tambah Data Pasien Baru\n");
+        printf("3. Reservasi Konsultasi (Dokter Dipilihkan Otomatis)\n");
+        printf("4. Mulai Sesi Konsultasi Online\n");
+        printf("5. Lihat Riwayat Konsultasi\n"); // no.5
+        printf("6. Keluar\n");
+        printf("Pilih menu (1-6): ");
+
+        if (scanf("%d", &pilihan) != 1) {
+            printf("Input tidak valid. Masukkan angka.\n");
+            while (getchar() != '\n'); // Membersihkan buffer input
+            pilihan = 0;
+        }
+
+        switch (pilihan) {
+            case 1:
+                cariDokterBerdasarkanSpesialisasi(daftarDokter, jumlahDokter);
+                break;
+            case 2:
+                tambahPasien(daftarPasien, &jumlahPasien);
+                break;
+            case 3:
+                reservasiKunjungan(daftarPasien, jumlahPasien, daftarDokter, jumlahDokter);
+                break;
+            case 4:
+                // menyimpan riwayat
+                konsultasiOnline(daftarPasien, jumlahPasien, daftarDokter, jumlahDokter, daftarRiwayat, &jumlahRiwayat);
+                break;
+            case 5:
+                // no.5
+                tampilkanRiwayatKonsultasi(daftarRiwayat, jumlahRiwayat, daftarPasien, jumlahPasien, daftarDokter, jumlahDokter);
+                break;
+            case 6:
+                printf("\nTerima kasih telah menggunakan sistem ClinicNow. Semoga lekas sembuh!\n");
+                break;
+            default:
+                printf("Pilihan tidak valid. Silakan pilih menu antara 1 sampai 6.\n");
+        }
+        if (pilihan != 6) {
+             printf("\nTekan Enter untuk melanjutkan...");
+             while (getchar() != '\n'); // Membersihkan buffer jika ada sisa newline dari scanf angka
+             getchar(); // Menunggu user menekan Enter
+        }
+    } while (pilihan != 6);
+
+    return 0;
+}
